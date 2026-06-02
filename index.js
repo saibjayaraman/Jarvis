@@ -346,7 +346,8 @@ async function typist(id, text) {
 const app = express();
 
 const MODEL = "qwen3:8b";
-const system = readFileSync("./system.txt", {encoding: "utf8"})
+const systemraw = readFileSync("./system.txt", {encoding: "utf8"})
+const system = systemraw.replaceAll("<name>", process.env.USER_NAME)
 const chatHistory = [{
     role: "system",
     content: system
