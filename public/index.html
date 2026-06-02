@@ -3,28 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local AI</title>
+    <title>JARVIS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="app">
+        <header class="header">
+            <div class="header-brand">
+                <div class="logo" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5" opacity="0.35"/>
+                        <circle cx="16" cy="16" r="6" fill="currentColor" opacity="0.9"/>
+                        <path d="M16 2v4M16 26v4M2 16h4M26 16h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+                    </svg>
+                </div>
+                <div class="header-titles">
+                    <h1 class="title">JARVIS</h1>
+                    <p class="subtitle">Agentic browser assistant</p>
+                </div>
+            </div>
+            <div class="header-meta">
+                <span id="locationStatus" class="status-pill location-pill" hidden>
+                    <span class="status-dot"></span>
+                    <span class="status-text"></span>
+                </span>
+                <span class="status-pill live-pill">
+                    <span class="status-dot live"></span>
+                    <span>Ready</span>
+                </span>
+            </div>
+        </header>
 
-<div class="container">
+        <main id="messages" class="messages" aria-live="polite">
+            <div id="emptyState" class="empty-state">
+                <div class="empty-icon" aria-hidden="true">
+                    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="6" y="10" width="36" height="28" rx="4" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M6 18h36" stroke="currentColor" stroke-width="1.5"/>
+                        <circle cx="12" cy="14" r="1.5" fill="currentColor"/>
+                        <circle cx="17" cy="14" r="1.5" fill="currentColor"/>
+                        <circle cx="22" cy="14" r="1.5" fill="currentColor"/>
+                        <path d="M14 28h20M14 32h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+                    </svg>
+                </div>
+                <h2 class="empty-title">What should I do?</h2>
+                <p class="empty-desc">I can browse the web, read pages, click links, and fill forms. I also see your time and approximate location.</p>
+                <div class="suggestions">
+                    <button type="button" class="suggestion" data-prompt="What's the weather like near me?">Weather near me</button>
+                    <button type="button" class="suggestion" data-prompt="Open news.ycombinator.com and summarize the top story">Summarize HN</button>
+                    <button type="button" class="suggestion" data-prompt="Search for the best pizza near me and open a result">Find pizza nearby</button>
+                </div>
+            </div>
+        </main>
 
-    <div class="header">
-        <span>Local AI</span>
-        <span id="locationStatus" class="location-status" hidden></span>
+        <footer class="composer">
+            <div class="composer-inner">
+                <textarea
+                    id="messageInput"
+                    rows="1"
+                    placeholder="Ask me to browse, research, or complete a task…"
+                    aria-label="Message"
+                ></textarea>
+                <button id="sendButton" type="button" class="send-btn" aria-label="Send message">
+                    <svg class="send-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <p class="composer-hint"><kbd>Enter</kbd> send · <kbd>Shift</kbd>+<kbd>Enter</kbd> new line</p>
+        </footer>
     </div>
 
-    <div id="messages"></div>
-
-    <div class="input-bar">
-        <input id="messageInput" placeholder="Ask something...">
-        <button id="sendButton">Send</button>
-    </div>
-
-</div>
-
-<script src="chat.js"></script>
-
+    <script src="chat.js"></script>
 </body>
 </html>

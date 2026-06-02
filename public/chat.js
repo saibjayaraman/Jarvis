@@ -1,10 +1,13 @@
-const messages = document.getElementById("messages");
+const messagesEl = document.getElementById("messages");
+const emptyState = document.getElementById("emptyState");
 const input = document.getElementById("messageInput");
 const button = document.getElementById("sendButton");
 const locationStatus = document.getElementById("locationStatus");
+const livePill = document.querySelector(".live-pill");
 
 let cachedAddress = null;
 let addressPromise = null;
+let isBusy = false;
 
 function formatAddress(data) {
     const a = data?.address;
@@ -18,8 +21,43 @@ function formatAddress(data) {
 
 function setLocationStatus(text) {
     if (!locationStatus) return;
+    const textEl = locationStatus.querySelector(".status-text");
     locationStatus.hidden = !text;
-    locationStatus.textContent = text;
+    if (textEl) textEl.textContent = text;
+    else locationStatus.textContent = text;
+}
+
+function setBusy(busy) {
+    isBusy = busy;
+    button.disabled = busy;
+    if (livePill) {
+        livePill.classList.toggle("busy", busy);
+        const label = livePill.querySelector("span:last-child");
+        if (label) label.textContent = busy ? "Working" : "Ready";
+    }
+}
+
+function hideEmptyState() {
+    messagesEl.classList.add("has-chat");
+}
+
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function renderMarkdown(text) {
+    const escaped = escapeHtml(text);
+    const withBold = escaped.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    return withBold.replace(/\n/g, "<br>");
+}
+
+function autoResizeTextarea() {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 160) + "px";
 }
 
 function resolveAddress() {
@@ -74,59 +112,90 @@ function resolveAddress() {
 
 resolveAddress();
 
-function escapeHtml(text) {
-    return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+function createMessageRow(role) {
+    const row = document.createElement("div");
+    row.className = `message-row ${role}`;
+
+    const avatar = document.createElement("div");
+    avatar.className = "message-avatar";
+    avatar.setAttribute("aria-hidden", "true");
+    avatar.textContent = role === "user" ? "You" : "AI";
+
+    const body = document.createElement("div");
+    body.className = "message-body";
+
+    const label = document.createElement("div");
+    label.className = "message-label";
+    label.textContent = role === "user" ? "You" : "Assistant";
+
+    const bubble = document.createElement("div");
+    bubble.className = "message";
+
+    const content = document.createElement("div");
+    content.className = "message-content";
+    bubble.appendChild(content);
+
+    const toolsEl = document.createElement("div");
+    toolsEl.className = "message-tools";
+    toolsEl.hidden = true;
+
+    body.append(label, bubble, toolsEl);
+    row.append(avatar, body);
+    messagesEl.appendChild(row);
+
+    return { row, bubble, content, toolsEl };
 }
 
-function renderMarkdown(text) {
-    const escaped = escapeHtml(text);
-    const withBold = escaped.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
-    return withBold.replace(/\n/g, "<br>");
+function setMessageContent(contentEl, bubble, text, { thinking = false } = {}) {
+    bubble.classList.toggle("status-thinking", thinking);
+    contentEl.innerHTML = thinking ? escapeHtml(text) : renderMarkdown(text);
 }
 
-function setMessageContent(div, text) {
-    div.innerHTML = renderMarkdown(text);
+function addToolChip(toolsEl, name, running = true) {
+    toolsEl.hidden = false;
+    const chip = document.createElement("span");
+    chip.className = "tool-chip" + (running ? " running" : "");
+    chip.textContent = name;
+    chip.dataset.tool = name;
+    toolsEl.appendChild(chip);
+    return chip;
+}
+
+function finishToolChip(chip) {
+    if (chip) chip.classList.remove("running");
 }
 
 function addMessage(text, role) {
-    const div = document.createElement("div");
-
-    div.classList.add("message");
-    div.classList.add(role);
+    hideEmptyState();
+    const { row, bubble, content } = createMessageRow(role);
 
     if (role === "assistant") {
-        setMessageContent(div, text);
+        setMessageContent(content, bubble, text);
     } else {
-        div.textContent = text;
+        content.textContent = text;
     }
 
-    messages.appendChild(div);
-
-    messages.scrollTop = messages.scrollHeight;
-
-    return div;
+    scrollToBottom();
+    return { row, bubble, content, toolsEl: row.querySelector(".message-tools") };
 }
 
 function scrollToBottom() {
-    messages.scrollTop = messages.scrollHeight;
+    messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-async function consumeStream(response, assistantDiv) {
+async function consumeStream(response, assistant) {
+    const { bubble, content, toolsEl } = assistant;
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    let content = "";
+    let textContent = "";
+    const activeTools = new Map();
 
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-
         const parts = buffer.split("\n\n");
         buffer = parts.pop() ?? "";
 
@@ -136,30 +205,37 @@ async function consumeStream(response, assistantDiv) {
 
             const event = JSON.parse(line.slice(6));
 
-            if (event.type === "status" && !assistantDiv.dataset.hasTokens) {
-                setMessageContent(assistantDiv, event.content);
+            if (event.type === "status" && !bubble.dataset.hasTokens) {
+                setMessageContent(content, bubble, event.content, { thinking: true });
                 scrollToBottom();
             } else if (event.type === "token") {
-                if (!assistantDiv.dataset.hasTokens) {
-                    content = "";
-                    assistantDiv.dataset.hasTokens = "1";
+                if (!bubble.dataset.hasTokens) {
+                    textContent = "";
+                    bubble.dataset.hasTokens = "1";
+                    bubble.classList.remove("status-thinking");
                 }
-                content += event.content;
-                setMessageContent(assistantDiv, content);
+                textContent += event.content;
+                setMessageContent(content, bubble, textContent);
                 scrollToBottom();
             } else if (event.type === "tool") {
-                if (!assistantDiv.dataset.hasTokens) {
-                    content = "";
-                    assistantDiv.dataset.hasTokens = "1";
+                if (!bubble.dataset.hasTokens) {
+                    textContent = "";
+                    bubble.dataset.hasTokens = "1";
+                    bubble.classList.remove("status-thinking");
                 }
-                content += `\n[${event.name}…]\n`;
-                setMessageContent(assistantDiv, content);
+                const chip = addToolChip(toolsEl, event.name, true);
+                activeTools.set(event.name, chip);
                 scrollToBottom();
             } else if (event.type === "error") {
-                setMessageContent(assistantDiv, event.content);
-            } else if (event.type === "done" && !assistantDiv.dataset.hasTokens) {
-                if (assistantDiv.textContent === "Thinking…") {
-                    setMessageContent(assistantDiv, "");
+                bubble.classList.add("error");
+                bubble.classList.remove("status-thinking");
+                setMessageContent(content, bubble, event.content);
+            } else if (event.type === "done") {
+                for (const chip of activeTools.values()) {
+                    finishToolChip(chip);
+                }
+                if (!bubble.dataset.hasTokens && content.textContent === "Thinking…") {
+                    setMessageContent(content, bubble, "");
                 }
             }
         }
@@ -168,15 +244,18 @@ async function consumeStream(response, assistantDiv) {
 
 async function send() {
     const text = input.value.trim();
+    if (!text || isBusy) return;
 
-    if (!text) return;
-
+    hideEmptyState();
     addMessage(text, "user");
 
     input.value = "";
-    button.disabled = true;
+    autoResizeTextarea();
+    setBusy(true);
 
-    const assistantDiv = addMessage("", "assistant");
+    const assistant = addMessage("", "assistant");
+    setMessageContent(assistant.content, assistant.bubble, "Thinking…", { thinking: true });
+
     const address = await resolveAddress();
 
     try {
@@ -185,28 +264,47 @@ async function send() {
 
         const response = await fetch("/chat", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body)
         });
 
         if (!response.ok) {
-            setMessageContent(assistantDiv, "Error talking to Ollama.");
+            assistant.bubble.classList.add("error");
+            setMessageContent(assistant.content, assistant.bubble, "Something went wrong. Check the server logs.");
             return;
         }
 
-        await consumeStream(response, assistantDiv);
+        await consumeStream(response, assistant);
     } catch {
-        setMessageContent(assistantDiv, "Error talking to Ollama.");
+        assistant.bubble.classList.add("error");
+        setMessageContent(assistant.content, assistant.bubble, "Could not reach the server.");
     } finally {
-        button.disabled = false;
+        setBusy(false);
         input.focus();
     }
 }
 
-button.onclick = send;
+button.addEventListener("click", send);
 
-input.addEventListener("keydown", e => {
-    if (e.key === "Enter") send();
+input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+    }
 });
+
+input.addEventListener("input", autoResizeTextarea);
+
+document.querySelectorAll(".suggestion").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        const prompt = btn.dataset.prompt;
+        if (prompt) {
+            input.value = prompt;
+            autoResizeTextarea();
+            input.focus();
+        }
+    });
+});
+
+autoResizeTextarea();
+input.focus();
