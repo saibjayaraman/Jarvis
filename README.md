@@ -139,23 +139,37 @@ npm install
 npx playwright install chromium
 ```
 
-### Environment variables
+### Environment variables (With reccomended values)
 
 ```env
-BRAIN_PROVIDER=ollama_local
+# Current Brain
+BRAIN_PROVIDER=claude
 
+# Brains
+## ollama_local
 OLLAMA_MODEL=qwen3:8b
 OLLAMA_URL=http://localhost:11434
+OLLAMA_THINK=false
 
+## ollama_remote
 REMOTE_OLLAMA_URL=
 REMOTE_OLLAMA_MODEL=
+REMOTE_OLLAMA_THINK=false
 
+## claude
 CLAUDE_API_KEY=
 CLAUDE_MODEL=claude-haiku-4-5-20251001
 
-USER_NAME=YourName
+# QMD Search
+INDEXING_FREQUENCY=0.25
+QMD_SEARCH_MODEL_PROVIDER=ollama_local
+QMD_SEARCH_MODEL=phi3.5:3.8b
+QMD_SEARCH_TOP_K=5
 
-INDEXING_FREQUENCY=24
+# Other
+USER_NAME=
+DISCORD_TOKEN=
+ENABLE_WEBUI=false
 ```
 
 ---

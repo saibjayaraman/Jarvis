@@ -118,7 +118,7 @@ async function chatWithTools(res, messages) {
 }
 
 app.use(express.json());
-app.use(express.static("public"));
+if (process.env.ENABLE_WEBUI === true) app.use(express.static("public"));
 
 function buildSystemContext(address) {
     const page = getCurrentPage();
