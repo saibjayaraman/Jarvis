@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { searchMemory } from "./memory.js";
 
 function parseArgs(args) {
     return typeof args === "string" ? JSON.parse(args) : args;
@@ -6,7 +7,6 @@ function parseArgs(args) {
 
 export async function runTool(name, args) {
     const parsed = parseArgs(args);
-    console.log(name, args)
 
     switch (name) {
         // navigation
@@ -56,7 +56,9 @@ export async function runTool(name, args) {
         case "typist":
             return await typist(parsed.id, parsed.text);
         case "screenshot":
-            return await screenshot()
+            return await screenshot();
+        case "search_memory":
+            return await memorySearch(parsed);
         default:
             return {
                 success: false,
@@ -138,7 +140,7 @@ export const tools = [
         type: "function",
         function: {
             name: "observePage",
-            description: "Inspect the current webpage. Returns page title, URL, visible text, inputs, and clickable elements with IDs.",
+            description: "Inspect the current webpage. Returns page title, URL, visible text, inputs, and clickable elements with IDs. USE observatory UNLESS observePage IS SPECIFICALLY NECESSARY",
             parameters: {
                 type: "object",
                 properties: {}
@@ -278,6 +280,21 @@ export const tools = [
                     }
                 }
             }
+        }
+    },
+    {
+        name: "search_memory",
+        description: "Search long-term memory (previous chats, people, journal). Use multiple queries for better recall.",
+        parameters: {
+            type: "object",
+            properties: {
+                queries: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "List of search queries. Use good queries for a vector search, but mostly target BM25 results."
+                }
+            },
+            required: ["queries"]
         }
     }
 ];
@@ -622,4 +639,42 @@ async function screenshot({ fullPage = false } = {}) {
         type: "image",
         path
     };
+}
+async function memorySearch(args) {
+    console.log("[MEMORY TOOL] raw args:", JSON.stringify(args));
+
+    const queries = Array.isArray(args?.queries)
+        ? args.queries
+        : [];
+
+    console.log("[MEMORY TOOL] queries:", queries);
+
+    if (!queries.length) {
+        console.log("[MEMORY TOOL] no queries provided");
+        return "";
+    }
+
+    try {
+        const results = await Promise.all(
+            queries.map(query => searchMemory(query))
+        );
+
+        const combined = results
+            .filter(Boolean)
+            .join("\n\n");
+
+        console.log(
+            "[MEMORY TOOL] result length:",
+            combined.length
+        );
+
+        return combined;
+    } catch (err) {
+        console.error(
+            "[MEMORY TOOL] search failed:",
+            err
+        );
+
+        return "";
+    }
 }

@@ -4,6 +4,26 @@ import { readFileSync } from "fs";
 import { brainChat } from "./brain.js";
 import { tools, runTool, getCurrentPage } from "./tools.js";
 import "./discord.js";
+import { searchMemory } from "./memory.js";
+import { extractMemory } from "./memoryExtractor.js";
+import { writeMemory } from "./memoryWriter.js"
+import "./memoryIndexer.js";
+
+process.on("SIGINT", async () => {
+    // silence everything during shutdown
+    const noop = () => {};
+
+    console.log = noop;
+    console.warn = noop;
+    console.error = noop;
+
+    try {
+        await model?.dispose?.();
+        await store?.close?.();
+    } catch {}
+
+    process.exit(0);
+});
 
 function currentDate(date = new Date()) {
     const day = String(date.getDate()).padStart(2, '0');
@@ -148,32 +168,51 @@ app.post("/chat", async (req, res) => {
 
 app.post("/chat-json", async (req, res) => {
     try {
-        const {
-            messages,
-            address
-        } = req.body;
+        const { messages } = req.body;
 
-        const systemMessages = [
-            {
-                role: "system",
-                content: system
-            },
-            {
-                role: "system",
-                content: buildSystemContext(address)
-            }
-        ];
+        const lastUserMessage = [...messages]
+            .reverse()
+            .find(m => m.role === "user")?.content ?? "";
+
+        const query = lastUserMessage.trim();
+        if (!query) {
+            console.warn("Empty query detected — skipping memory search");
+        }
+
+        const systemMessage = {
+            role: "system",
+            content:
+                system +
+                "\n\n" +
+                buildSystemContext("Unknown due to client")
+        };
 
         const response = await chatWithTools(
             null,
             [
-                ...systemMessages,
+                systemMessage,
                 ...messages
             ]
         );
 
         res.json({
             response: response.content
+        });
+
+        queueMicrotask(async () => {
+            try {
+                const memory = await extractMemory(
+                    brainChat,
+                    [...messages, response]
+                );
+        
+                if (!memory) return;
+        
+                await writeMemory(memory);
+        
+            } catch (err) {
+                console.error("Memory extraction failed:", err);
+            }
         });
     } catch (err) {
         console.error(err);

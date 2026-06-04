@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "start": "node index.js",
+    "reindex": "node reindex.js"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +16,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@photon-ai/imessage-kit": "^3.0.0",
     "@playwright/mcp": "^0.0.75",
+    "@tobilu/qmd": "^2.5.3",
     "better-sqlite3": "^12.10.0",
     "cors": "^2.8.6",
     "discord.js": "^14.26.4",

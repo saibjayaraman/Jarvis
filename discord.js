@@ -12,9 +12,6 @@ const client = new Client({
     ]
 });
 
-// threadId -> first user prompt only
-const threadRoots = new Map();
-
 client.once("clientReady", (c) => {
     console.log(`Logged in as ${c.user.tag}`);
 });
@@ -23,27 +20,39 @@ client.on("messageCreate", async (message) => {
     if (message.author.bot) return;
 
     // -------------------------
-    // NEW CONVERSATION
+    // NEW THREAD (MENTION)
     // -------------------------
     if (
         message.channel.type === ChannelType.GuildText &&
         message.mentions.has(client.user)
     ) {
         const prompt = message.content
-            .replace(
-                new RegExp(`<@!?${client.user.id}>`, "g"),
-                ""
-            )
+            .replace(new RegExp(`<@!?${client.user.id}>`, "g"), "")
             .trim();
 
-        const thread = await message.startThread({
-            name: prompt.slice(0, 60) || "Jarvis Thread",
-            autoArchiveDuration: 1440
-        });
+        const cleanPrompt = prompt
+            .replace(/<@&\d+>/g, "")
+            .trim();
+        
+        let thread;
+        
+        try {
+            thread = await message.startThread({
+                name: cleanPrompt.slice(0, 60) || "Jarvis Thread",
+                autoArchiveDuration: 1440
+            });
+        } catch (err) {
+            if (err.code === 160004) {
+                const active = await message.channel.threads.fetchActive();
+                thread = active.threads.find(t => t.id === message.id);
+                if (!thread) return;
+            } else {
+                throw err;
+            }
+        }
+        
 
-        threadRoots.set(thread.id, prompt);
-
-        await runThread(thread);
+        await processThread(thread);
 
         return;
     }
@@ -52,64 +61,45 @@ client.on("messageCreate", async (message) => {
     // THREAD CONTINUATION
     // -------------------------
     if (message.channel.isThread()) {
-        await runThread(message.channel);
+        await processThread(message.channel);
     }
 });
 
-async function runThread(thread) {
+async function processThread(thread) {
     await thread.sendTyping();
-
-    const root = threadRoots.get(thread.id);
-
+    const starterMessage = await thread.fetchStarterMessage();
     const fetched = await thread.messages.fetch({ limit: 100 });
 
-    const history = [...fetched.values()]
+    const history = [
+        starterMessage,
+        ...fetched.values()
+    ]
+        .filter(Boolean)
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
-
-        // remove empty / junk / retry noise
-        .filter(m =>
-            m.content &&
-            m.content.trim().length > 0 &&
-            !m.content.includes("try again") &&
-            !m.content.includes("restarted")
-        )
-
-        .map(m => ({
-            role: m.author.id === client.user.id
-                ? "assistant"
-                : "user",
-            content: m.content
+        .map((msg) => ({
+            role: msg.author.bot ? "assistant" : "user",
+            content: msg.content
         }));
 
-    // -------------------------
-    // FORCE STABLE ROOT CONTEXT
-    // -------------------------
-    const messages = [
-        ...(root
-            ? [{ role: "user", content: root }]
-            : []),
-        ...history
-    ];
-
-    const res = await fetch("http://localhost:3000/chat-json", {
+    const response = await fetch("http://localhost:3000/chat-json", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
             address: "Discord",
-            messages
+            messages: history
         })
     });
 
-    if (!res.ok) {
-        const err = await res.text();
+    if (!response.ok) {
+        const err = await response.text();
         console.error(err);
         await thread.send("Backend error.");
         return;
     }
 
-    const data = await res.json();
+    const data = await response.json();
 
     if (data.response?.trim()) {
         await thread.send(data.response);

@@ -6,20 +6,23 @@ const anthropic = new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY
 });
 
-const provider = process.env.BRAIN_PROVIDER;
-
 function parseToolInput(args) {
     if (args == null) return {};
     return typeof args === "string" ? JSON.parse(args) : args;
 }
 
-function toAnthropicTools(tools) {
-    if (!tools?.length) return undefined;
-    return tools.map(t => ({
-        name: t.function.name,
-        description: t.function.description,
-        input_schema: t.function.parameters
-    }));
+function toAnthropicTools(tools = []) {
+    return tools
+        .filter(Boolean)
+        .map(t => {
+            const fn = t.function ?? t;
+
+            return {
+                name: fn.name,
+                description: fn.description,
+                input_schema: fn.parameters
+            };
+        });
 }
 
 /** Unwrap assistant rows where index.js stored the whole response in `content`. */
@@ -147,10 +150,10 @@ async function* claudeStreamToOllama(anthropicStream) {
     }
 }
 
-async function claudeChat({ messages, tools, stream }) {
+async function claudeChat({ messages, tools, stream }, model = process.env.CLAUDE_MODEL) {
     const { system, messages: anthropicMessages } = toAnthropicMessages(messages);
     const params = {
-        model: process.env.CLAUDE_MODEL,
+        model: model ? model : process.env.CLAUDE_MODEL,
         max_tokens: Number(process.env.CLAUDE_MAX_TOKENS) || 4096,
         messages: anthropicMessages,
         tools: toAnthropicTools(tools),
@@ -178,15 +181,15 @@ async function claudeChat({ messages, tools, stream }) {
     };
 }
 
-export async function brainChat({ messages, tools, stream }) {
+export async function brainChat({ messages, tools, stream }, provider = process.env.BRAIN_PROVIDER, model = undefined, think = false) {
     switch (provider) {
         case "ollama_local":
             return await ollama.chat({
-                model: process.env.OLLAMA_MODEL,
+                model: model ? model : process.env.OLLAMA_MODEL,
                 messages,
                 tools,
                 stream,
-                think: process.env.OLLAMA_THINK === "false" ? false : "low"
+                think: think ? think : (process.env.OLLAMA_THINK === "false" ? false : "low")
             });
 
         case "ollama_remote":
@@ -194,7 +197,7 @@ export async function brainChat({ messages, tools, stream }) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    model: process.env.REMOTE_OLLAMA_MODEL,
+                    model: model ? model : process.env.REMOTE_OLLAMA_MODEL,
                     messages,
                     tools,
                     stream,
@@ -203,7 +206,7 @@ export async function brainChat({ messages, tools, stream }) {
             }).then(r => r.json());
 
         case "claude":
-            return claudeChat({ messages, tools, stream });
+            return claudeChat({ messages, tools, stream }, model);
 
         default:
             throw new Error("Unknown brain provider");
