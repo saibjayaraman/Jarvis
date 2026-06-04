@@ -1,158 +1,198 @@
 # Jarvis
 
-A local web chat UI backed by a tool-using AI agent. The model can see your approximate location and the current time, and it controls a headless browser to browse the web on your behalf.
+A tool-using AI agent system that runs across multiple clients (Web + Discord) backed by a swappable “brain” (Ollama or Claude).  
+Jarvis is designed as an execution-first system with tool-driven reasoning, browser automation, and client-owned conversation memory.
 
-The assistant persona and behavior live in `system.txt` (default: JARVIS-style, task-focused, minimal narration).
+---
 
 ## Features
 
-- **Agentic browsing** — The model drives a headless Chromium instance via Playwright: navigate, observe pages, click links/buttons, type into fields, and manage tabs.
-- **Context awareness** — Each request includes the server time, your reverse-geocoded address (from browser geolocation), and the active tab’s URL/title.
-- **Streaming replies** — Tokens stream to the browser over Server-Sent Events (SSE).
-- **Multi-turn tool loop** — The server runs tool calls, feeds results back to the model, and repeats until the model finishes or hits a safety cap.
-- **Pluggable “brain”** — Swap between local Ollama, remote Ollama, and Anthropic Claude via `.env`, without changing the rest of the app.
+- Multi-client agent — Web UI + Discord bot using the same backend API
+- Thread-based memory (Discord) — each thread is a full isolated conversation reconstructed from Discord history
+- Stateless backend — `/chat-json` receives full message history from the client (no server-side chat memory)
+- Swappable AI brain:
+  - Ollama (local)
+  - Ollama (remote)
+  - Anthropic Claude (streaming supported)
+- Tool-using agent loop:
+  - Executes structured tool calls
+  - Iterates until completion or tool limit reached
+- Browser automation (Playwright):
+  - Navigate pages
+  - Inspect DOM state
+  - Click / type / interact
+- Web UI streaming (SSE)
 
-## How it works
+---
+
+## Architecture
 
 ```
-Browser (chat.js)
-    │  POST /chat  { message, address? }
-    ▼
-Express (index.js)
-    │  builds messages: system.txt + chat history + per-request context
-    ▼
-brain.js  ──►  Ollama or Claude API  (streaming)
-    │  tool_calls
-    ▼
-Playwright tools (navigate, observatory, clicker, …)
-    │  tool results
-    └──► back to the model until done
+Discord / Web Client
+    ↓
+Express server (index.js)
+    ↓
+system.txt + runtime context (time/location/browser state)
+    ↓
+brain.js (provider router)
+    ↓
+LLM (Ollama / Claude / remote)
+    ↓
+tool calls (optional)
+    ↓
+Playwright + internal tools
+    ↓
+tool results fed back until completion
 ```
 
-1. `**public/chat.js**` asks for geolocation (optional), reverse-geocodes coordinates with OpenStreetMap Nominatim, and sends your message plus address to the server.
-2. `**index.js**` merges `system.txt`, conversation history, and a fresh system block with `[TIME]`, `[LOCATION]`, and `[BROWSER]` state.
-3. `**brain.js**` translates between the app’s Ollama-shaped message/tool format and each provider’s API (including Claude streaming).
-4. When the model requests tools, `**index.js**` runs them against the shared Playwright browser and appends results to the message list for the next model turn.
+---
+
+## Discord behavior
+
+- @mention creates a new thread
+- Each thread is a self-contained conversation
+- Context is reconstructed from Discord messages
+- First prompt is stored as thread root (critical for consistency)
+- No database, no server-side memory
+
+---
+
+## Core principles
+
+- Client owns memory (Discord/Web provides full context)
+- Backend is stateless
+- No synthetic placeholders in model context
+- Tool execution is deterministic and loop-controlled
+- No refusal-style “capability limits” when tools exist
+
+---
 
 ## Requirements
 
-- [Node.js](https://nodejs.org/) 18+
-- For **Ollama** providers: [Ollama](https://ollama.com/) running locally or on another machine
-- For **Claude**: an [Anthropic API key](https://console.anthropic.com/)
-- Playwright’s Chromium binary (installed once after `npm i`)
+- Node.js 18+
+- Playwright (Chromium)
+- Ollama or Anthropic API key
+
+---
 
 ## Setup
 
 ```bash
-git clone <your-repo-url>
+git clone <repo>
 cd ollama-chat
-npm i
+npm install
 npx playwright install chromium
 ```
 
-Create `.env` in the project root (see `.gitignore` — never commit secrets):
+---
 
-```env
-# Current Brain
-BRAIN_PROVIDER=
-
-# Brains
-## ollama_local
-OLLAMA_MODEL=
-OLLAMA_URL=http://localhost:11434
-OLLAMA_THINK=false
-
-## ollama_remote
-REMOTE_OLLAMA_URL=
-REMOTE_OLLAMA_MODEL=
-REMOTE_OLLAMA_THINK=false
-
-## claude
-CLAUDE_API_KEY=
-CLAUDE_MODEL=claude-haiku-4-5-20251001
-
-# Other
-USER_NAME=
-```
-
-### Choose a brain
-
-Set `BRAIN_PROVIDER` to one of:
-
-
-| Value           | Description                                                                                                                         |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `ollama_local`  | Chat via the Ollama npm client. Set `OLLAMA_MODEL` (e.g. `qwen3:8b`). `OLLAMA_THINK` controls extended thinking (`false` or `low`). |
-| `ollama_remote` | Same API, but HTTP to `REMOTE_OLLAMA_URL` with `REMOTE_OLLAMA_MODEL`.                                                               |
-| `claude`        | Anthropic Messages API. Set `CLAUDE_API_KEY` and `CLAUDE_MODEL`. Optional: `CLAUDE_MAX_TOKENS` (default `4096`).                    |
-
-
-Examples:
+## Environment variables
 
 ```env
 BRAIN_PROVIDER=ollama_local
+
 OLLAMA_MODEL=qwen3:8b
-USER_NAME=Your Name
-```
+OLLAMA_URL=http://localhost:11434
 
-```env
-BRAIN_PROVIDER=claude
-CLAUDE_API_KEY=sk-ant-...
+REMOTE_OLLAMA_URL=
+REMOTE_OLLAMA_MODEL=
+
+CLAUDE_API_KEY=
 CLAUDE_MODEL=claude-haiku-4-5-20251001
-USER_NAME=Your Name
+
+USER_NAME=YourName
 ```
 
-`USER_NAME` can be set to anything and is just so that the AI system knows what to call you.
+---
 
-### Run
+## Brain providers
+
+| Provider | Description |
+|----------|-------------|
+| ollama_local | Local Ollama instance |
+| ollama_remote | Remote Ollama server |
+| claude | Anthropic Claude API |
+
+---
+
+## Run
 
 ```bash
 npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Allow location when prompted if you want the model to see where you are.
+Open:
+
+```
+http://localhost:3000
+```
+
+---
 
 ## Browser tools
 
-These are exposed to the model (defined in `tools.js`, implemented in `index.js`):
+| Tool | Purpose |
+|------|--------|
+| navigate | Load URL |
+| observatory | Inspect page state |
+| observePage | Full DOM snapshot |
+| clicker | Click element by ID |
+| clickText | Click by visible label |
+| typist | Type into inputs |
+| type | CSS selector input |
+| newTab / switchTab / closeTab / listTabs | Tab management |
 
+---
 
-| Tool                                             | Purpose                                                                    |
-| ------------------------------------------------ | -------------------------------------------------------------------------- |
-| `navigate`                                       | Go to a URL                                                                |
-| `observePage`                                    | Snapshot title, URL, visible text, inputs, and clickable elements with IDs |
-| `observatory`                                    | Lighter/ob configurable page inspection                                    |
-| `clickText`                                      | Click by visible label                                                     |
-| `clickElement`                                   | Click by ID from `observePage`                                             |
-| `clicker`                                        | Click by ID from `observatory`                                             |
-| `type`                                           | Fill a CSS selector                                                        |
-| `typist`                                         | Type into an input by index                                                |
-| `newTab` / `switchTab` / `closeTab` / `listTabs` | Tab management                                                             |
+## System prompt behavior (Jarvis)
 
+Jarvis is an execution-first agent:
 
-The browser runs **headless** on the server machine — not on your phone’s screen. The model only sees what Playwright returns from each tool.
+- Task completion > conversation
+- Minimize tool cycles
+- Prefer direct action over explanation
+- Never output tool-limit or capability excuses if a valid path exists
+- Recover from tool failure by switching strategy immediately
 
-## Project layout
+---
 
+## Project structure
 
-| Path         | Role                                                       |
-| ------------ | ---------------------------------------------------------- |
-| `index.js`   | Express server, Playwright browser, tool runner, chat loop |
-| `brain.js`   | Provider switch + Ollama/Claude API adapters               |
-| `tools.js`   | Tool schemas sent to the model                             |
-| `system.txt` | System prompt and agent rules                              |
-| `public/`    | Static UI (`index.html`, `chat.js`, `style.css`)           |
+| File | Purpose |
+|------|--------|
+| index.js | Express server + Playwright + tool loop |
+| brain.js | Model router (Ollama / Claude / remote) |
+| tools.js | Tool schema definitions |
+| system.txt | System prompt |
+| public/ | Web UI |
 
+---
 
-## Customization
+## Key design change
 
-- Edit `**system.txt`** to change tone, rules, and tool discipline.
-- Add or change tools in `**tools.js`** and wire handlers in `**index.js**`’s `runTool`.
-- Adjust context in `**buildSystemContext()**` in `index.js` if you want more or less browser metadata per turn.
+Old:
+
+```
+server memory → model
+```
+
+New:
+
+```
+client memory → server → model
+```
+
+This enables:
+- Discord thread persistence
+- Web + Discord parity
+- Stateless scaling
+- Easy model swapping
+
+---
 
 ## Notes
 
-- **Location** is approximate (browser GPS → Nominatim). Denying permission sends `unknown` for location; the app still works.
-- **Remote Ollama** with `stream: true` may need extra work in `brain.js` if the remote endpoint does not return the same stream shape as the local client.
-- Keep `.env` out of version control. Rotate any API key that was ever committed or shared.
-
+- Threads are the source of truth in Discord mode
+- Do not rely on server-side chat history (removed)
+- Long conversations should be truncated or summarized
+- All providers must normalize messages in brain.js

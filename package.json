@@ -14,8 +14,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@photon-ai/imessage-kit": "^3.0.0",
     "@playwright/mcp": "^0.0.75",
+    "better-sqlite3": "^12.10.0",
     "cors": "^2.8.6",
+    "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "ollama": "^0.6.3"

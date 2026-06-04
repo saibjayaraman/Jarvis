@@ -1,9 +1,9 @@
 import "dotenv/config";
 import express from "express";
-import { chromium } from "playwright";
 import { readFileSync } from "fs";
 import { brainChat } from "./brain.js";
-import { tools } from "./tools.js"
+import { tools, runTool, getCurrentPage } from "./tools.js";
+import "./discord.js";
 
 function currentDate(date = new Date()) {
     const day = String(date.getDate()).padStart(2, '0');
@@ -14,410 +14,22 @@ function currentDate(date = new Date()) {
     const seconds = String(date.getSeconds()).padStart(2, '0');
   
     return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-  }
-
-const browser = await chromium.launch({
-    headless: true
-});
-
-let currentElements = [];
-let pages = [];
-let currentPageIndex = 0;
-let clipboard = "";
-
-function getCurrentPage() {
-    return pages[currentPageIndex];
-}
-
-async function newTab(url = "about:blank") {
-    const page = await browser.newPage();
-    pages.push(page);
-    currentPageIndex = pages.length - 1;
-    if (url) {
-        await page.goto(url);
-    }
-    return {
-        success: true,
-        index: currentPageIndex,
-        url
-    };
-}
-newTab()
-async function switchTab(index) {
-    if (!pages[index]) {
-        return {
-            success: false,
-            error: "Tab does not exist"
-        };
-    }
-    currentPageIndex = index;
-    return {
-        success: true
-    };
-}
-async function closeTab(index) {
-    if (!pages[index]) {
-        return {
-            success: false
-        };
-    }
-    await pages[index].close();
-    pages.splice(index, 1);
-    if (currentPageIndex >= pages.length) {
-        currentPageIndex = pages.length - 1;
-    }
-    return {
-        success: true
-    };
-}
-async function listTabs() {
-    return pages.map((page, index) => ({
-        index,
-        url: page.url()
-    }));
-}
-async function navigate(url) {
-    const start = performance.now();
-    const page = getCurrentPage();
-    await page.goto(url, {
-        waitUntil: "domcontentloaded"
-    });
-    const end = performance.now();
-    return {
-        success: true,
-        loadTimeMs: end - start
-    };
-}
-async function clickSelector(selector) {
-    const page = getCurrentPage()
-
-    try {
-        await page.locator(selector).first().click();
-        return {
-            success: true
-        };
-    } catch (err) {
-        return {
-            success: false,
-            error: err.message
-        };
-    }
-}
-async function clickElement(id) {
-    const page = getCurrentPage()
-    
-    try {
-        const element = currentElements.find(
-            e => e.id === id
-        );
-        if (!element) {
-            return {
-                success: false,
-                error: "Element not found"
-            };
-        }
-        await page
-            .getByText(element.text)
-            .first()
-            .click();
-        return {
-            success: true
-        };
-    } catch (err) {
-        return {
-            success: false,
-            error: err.message
-        };
-    }
-}
-async function clickText(text) {
-    const page = getCurrentPage()
-    
-    try {
-        await page.getByText(text, {
-            exact: false
-        }).first().click();
-
-        return {
-            success: true
-        };
-    } catch (err) {
-        return {
-            success: false,
-            error: err.message
-        };
-    }
-}
-async function type(selector, text) {
-    const page = getCurrentPage()
-    
-    await page.fill(selector, text);
-    return `Typed into ${selector}`;
-}
-async function extractText(selector) {
-    const page = getCurrentPage()
-    
-    const items = await page.locator(selector).allTextContents();
-    return items;
-}
-async function observePage() {
-    const page = getCurrentPage()
-    
-    const title = await page.title();
-    const url = page.url();
-
-    currentElements = [];
-
-    let id = 1;
-
-    // Links
-    const links = await page.locator("a").evaluateAll(nodes =>
-        nodes
-            .slice(0, 50)
-            .map(node => ({
-                text: node.innerText?.trim(),
-                href: node.href
-            }))
-            .filter(x => x.text)
-    );
-
-    for (const link of links) {
-        currentElements.push({
-            id: id++,
-            type: "link",
-            text: link.text
-        });
-    }
-    // Buttons
-    const buttons = await page.locator("button").allTextContents();
-    for (const text of buttons) {
-        if (!text.trim()) continue;
-        currentElements.push({
-            id: id++,
-            type: "button",
-            text: text.trim()
-        });
-    }
-    // Inputs
-    const inputs = await page.locator("input").evaluateAll(nodes =>
-        nodes.slice(0, 20).map(node => ({
-            placeholder: node.placeholder || "",
-            type: node.type || "text"
-        }))
-    );
-    // Visible text sample
-    const visibleText = (
-        await page.locator("body").innerText()
-    )
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 2000);
-    return {
-        title,
-        url,
-        visibleText,
-        inputs,
-        elements: currentElements
-    };
-}
-async function copyText(text) {
-    clipboard = text;
-    return {
-        success: true
-    };
-}
-async function getClipboard() {
-    return {
-        text: clipboard
-    };
-}
-async function pasteIntoElement(id) {
-    const element = currentElements.find(
-        e => e.id === id
-    );
-    if (!element) {
-        return {
-            success: false
-        };
-    }
-    await getCurrentPage()
-        .getByText(element.text)
-        .fill(clipboard);
-    return {
-        success: true
-    };
-}
-async function observatory(args = {}) {
-    const {
-        maxTextChars = 800,
-        maxLinks = 20,
-        maxElements = 50
-    } = args;
-    const page = getCurrentPage();
-    currentElements = [];
-    let id = 1;
-    // LINKS
-    const links = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll("a"))
-            .map(a => ({
-                text: (a.innerText || "").trim(),
-                href: a.href || ""
-            }))
-            .filter(x => x.text);
-    });
-    const limitedLinks = links.slice(0, maxLinks);
-    for (const link of limitedLinks) {
-        currentElements.push({
-            id: id++,
-            type: "link",
-            text: link.text
-        });
-    }
-    // BUTTONS + INPUTS (elements)
-    const elements = await page.evaluate(() => {
-        const els = document.querySelectorAll(
-            "button, input, textarea, select"
-        );
-        return Array.from(els).map(el => ({
-            tag: el.tagName,
-            text:
-                el.innerText ||
-                el.value ||
-                el.placeholder ||
-                "",
-            placeholder: el.placeholder || ""
-        }));
-    });
-    const limitedElements = elements.slice(0, maxElements || elements.length);
-    for (const el of limitedElements) {
-        if (!el.text?.trim()) continue;
-        currentElements.push({
-            id: id++,
-            type: el.tag.toLowerCase(),
-            text: el.text.trim()
-        });
-    }
-    // VISUAL TEXT
-    const rawText = await page.locator("body").innerText();
-    const visibleText = rawText
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, Math.min(maxTextChars, 2000));
-    return {
-        url: page.url(),
-        title: await page.title(),
-        visibleText,
-        elements: currentElements
-    };
-}
-async function clicker(id) {
-    const target =
-        currentElements.find(
-            e => e.id === id
-        );
-    if (!target) {
-        return {
-            success: false
-        };
-    }
-    const page = getCurrentPage();
-    await page
-        .getByText(target.text)
-        .first()
-        .click();
-    return {
-        success: true
-    };
-}
-async function typist(id, text) {
-    const page = getCurrentPage();
-    const inputs =
-        page.locator(
-            "input, textarea"
-        );
-    const input =
-        inputs.nth(id - 1);
-    await input.fill(text);
-    return {
-        success: true
-    };
 }
 
 const app = express();
 
-const MODEL = "qwen3:8b";
 const systemraw = readFileSync("./system.txt", {encoding: "utf8"})
 const system = systemraw.replaceAll("<name>", process.env.USER_NAME)
+
 const chatHistory = [{
     role: "system",
     content: system
 }];
 
-function parseArgs(args) {
-    return typeof args === "string" ? JSON.parse(args) : args;
-}
-
 function sendEvent(res, data) {
+    if (!res) return
+
     res.write(`data: ${JSON.stringify(data)}\n\n`);
-}
-
-async function runTool(name, args) {
-    const parsed = parseArgs(args);
-    console.log(name, args)
-
-    switch (name) {
-        // navigation
-        case "navigate":
-            return await navigate(parsed.url);
-
-        // core interaction
-        case "observePage":
-            return await observePage();
-        case "clickSelector":
-            return await clickSelector(parsed.selector);
-        case "clickText":
-            return await clickText(parsed.text);
-        case "clickElement":
-            return await clickElement(parsed.id);
-        case "type":
-            return await type(
-                parsed.selector,
-                parsed.text
-            );
-        case "extractText":
-            return await extractText(parsed.selector);
-
-        // tabs
-        case "newTab":
-            return await newTab(parsed.url);
-        case "switchTab":
-            return await switchTab(parsed.index);
-        case "closeTab":
-            return await closeTab(parsed.index);
-        case "listTabs":
-            return await listTabs();
-
-        // clipboard
-        case "copyText":
-            return await copyText(parsed.text);
-        case "getClipboard":
-            return await getClipboard()
-        case "pasteIntoElement":
-            return await pasteIntoElement(parsed.id);
-
-        // observatory system
-        case "observatory":
-            return await observatory(parsed);
-        case "clicker":
-            return await clicker(parsed.id);
-        case "typist":
-            return await typist(parsed.id, parsed.text);
-        default:
-            return {
-                success: false,
-                error: "Unknown tool: " + name
-            };
-    }
 }
 
 async function streamChat(messages, onToken) {
@@ -500,7 +112,6 @@ ${address ?? "unknown"}
 [BROWSER]
 url: ${page?.url?.() ?? "none"}
 title: ${page?.title?.() ?? "none"}
-tab: ${currentPageIndex}/${pages.length}
 `;
 
 }
@@ -532,6 +143,44 @@ app.post("/chat", async (req, res) => {
         console.error(err);
         sendEvent(res, { type: "error", content: "Error talking to Ollama." });
         res.end();
+    }
+});
+
+app.post("/chat-json", async (req, res) => {
+    try {
+        const {
+            messages,
+            address
+        } = req.body;
+
+        const systemMessages = [
+            {
+                role: "system",
+                content: system
+            },
+            {
+                role: "system",
+                content: buildSystemContext(address)
+            }
+        ];
+
+        const response = await chatWithTools(
+            null,
+            [
+                ...systemMessages,
+                ...messages
+            ]
+        );
+
+        res.json({
+            response: response.content
+        });
+    } catch (err) {
+        console.error(err);
+
+        res.status(500).json({
+            error: err.message
+        });
     }
 });
 
