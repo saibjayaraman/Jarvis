@@ -77,16 +77,16 @@ tool results fed back until completion
 
 ## Setup
 
+### Cloning
+
 ```bash
-git clone <repo>
+git clone https://github.com/saibjayaraman/Jarvis.git
 cd ollama-chat
 npm install
 npx playwright install chromium
 ```
 
----
-
-## Environment variables
+### Environment variables
 
 ```env
 BRAIN_PROVIDER=ollama_local
@@ -103,9 +103,7 @@ CLAUDE_MODEL=claude-haiku-4-5-20251001
 USER_NAME=YourName
 ```
 
----
-
-## Brain providers
+### Brain providers
 
 | Provider | Description |
 |----------|-------------|
@@ -113,9 +111,7 @@ USER_NAME=YourName
 | ollama_remote | Remote Ollama server |
 | claude | Anthropic Claude API |
 
----
-
-## Run
+### Run
 
 ```bash
 npm start
