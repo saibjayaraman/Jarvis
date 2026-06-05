@@ -79,10 +79,10 @@ async function streamChat(messages, onToken) {
     return assistant;
 }
 
-const MAX_TOOL_ROUNDS = process.env.MAX_TOOL_ROUNDS;
+const MAX_TOOL_ROUNDS = Number(process.env.MAX_TOOL_ROUNDS);
 
 async function chatWithTools(res, messages) {
-    for (let round = 0; (MAX_TOOL_ROUNDS === -1) ? true : (round < MAX_TOOL_ROUNDS); round++) {
+    for (let round = 0; round < (MAX_TOOL_ROUNDS === -1 ? Infinity : MAX_TOOL_ROUNDS); round++) {
         const response = await streamChat(messages, (token) => {
             sendEvent(res, { type: "token", content: token });
         });
