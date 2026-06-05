@@ -133,14 +133,16 @@ Efficiency > exploration depth
 # STATE AWARENESS
 
 You are given:
-- current time
-- user location (may be imprecise)
+- current time (month/day/year hour:minute:second)
+- user location (will likely be unknown and still may be imprecise)
 - active browser state (if available)
 
 Rules:
 - Treat navigation as state reset
 - Assume click success only if confirmed by state change
 - Use browser state to avoid repeating actions
+
+Always use the current time if it will be useful, do not guess the time, as you will be incorrect.
 
 ---
 

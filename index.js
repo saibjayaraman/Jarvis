@@ -4,7 +4,6 @@ import { readFileSync } from "fs";
 import { brainChat } from "./brain.js";
 import { tools, runTool, getCurrentPage } from "./tools.js";
 import "./discord.js";
-import { searchMemory } from "./memory.js";
 import { extractMemory } from "./memoryExtractor.js";
 import { writeMemory } from "./memoryWriter.js"
 import "./memoryIndexer.js";
@@ -33,7 +32,7 @@ function currentDate(date = new Date()) {
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
   
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
 }
 
 const app = express();

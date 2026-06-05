@@ -3,6 +3,7 @@ import {
     GatewayIntentBits,
     ChannelType
 } from "discord.js";
+import { logThreadMessage } from "./memory/logger.js";
 
 const client = new Client({
     intents: [
@@ -102,7 +103,19 @@ async function processThread(thread) {
     const data = await response.json();
 
     if (data.response?.trim()) {
-        await thread.send(data.response);
+        const assistant = data.response;
+        await thread.send(assistant);
+    
+        const userMessage = [...history]
+            .reverse()
+            .find(m => m.role === "user")
+            ?.content ?? "";
+    
+        logThreadMessage(
+            thread.id,
+            userMessage,
+            assistant
+        ).catch(console.error);
     }
 }
 

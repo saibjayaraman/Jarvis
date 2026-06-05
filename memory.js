@@ -7,11 +7,12 @@ export async function searchMemory(query) {
         const [lex, vec] = await Promise.all([
             store.search({
                 query,
-                limit: 20,
-                rerank: true
+                limit: 10,
+                rerank: false
             }),
             store.searchVector(query, {
-                limit: 20
+                limit: 10,
+                rerank: false
             })
         ]);
 
