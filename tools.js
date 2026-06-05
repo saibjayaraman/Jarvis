@@ -59,6 +59,11 @@ export async function runTool(name, args) {
             return await screenshot();
         case "search_memory":
             return await memorySearch(parsed);
+        case "sleep":
+            return await sleep(
+                parsed.seconds,
+                parsed.message
+            );
         default:
             return {
                 success: false,
@@ -296,7 +301,23 @@ export const tools = [
             },
             required: ["queries"]
         }
-    }
+    },
+    {
+        name: "wait_for",
+        description: "Pause the task until a future time or condition. Use for long running processes to send a status report to the user and then set a time to check back. Max 30 seconds",
+        parameters: {
+          type: "object",
+          properties: {
+            seconds: {
+              type: "number"
+            },
+            message: {
+              type: "string"
+            }
+          },
+          required: ["seconds", "message"]
+        }
+      }
 ];
 
 const browser = await chromium.launch({
@@ -677,4 +698,12 @@ async function memorySearch(args) {
 
         return "";
     }
+}
+export async function sleep(seconds, message) {
+    const safeSeconds = seconds >= 30 ? 30 : seconds
+    return {
+        sleep: true,
+        safeSeconds,
+        message
+    };
 }

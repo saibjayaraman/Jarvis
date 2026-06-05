@@ -3,18 +3,32 @@ import path from "path";
 
 const BASE = "./memory/previous_chats";
 
-export async function logThreadMessage(threadId, userMsg, assistantMsg) {
-    const filePath = path.join(BASE, `${threadId}.md`);
-
+export async function logThreadMessage(
+    threadId,
+    userMsg,
+    assistantMsg
+) {
     await fs.mkdir(BASE, { recursive: true });
 
-    const block = `
+    const filePath = path.join(
+        BASE,
+        `${threadId}.md`
+    );
+
+    const block = `## Timestamp
+    ${new Date().toISOString()}
+
 ## User
 ${userMsg}
 
 ## Assistant
 ${assistantMsg}
+
 `;
 
-    await fs.appendFile(filePath, block, "utf-8");
+    await fs.appendFile(
+        filePath,
+        block,
+        "utf-8"
+    );
 }

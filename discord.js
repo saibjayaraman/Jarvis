@@ -102,6 +102,20 @@ async function processThread(thread) {
 
     const data = await response.json();
 
+    if (data.paused) {
+        await thread.send(data.message);
+    
+        setTimeout(async () => {
+            try {
+                await processThread(thread);
+            } catch (err) {
+                console.error(err);
+            }
+        }, data.seconds * 1000);
+    
+        return;
+    }
+
     if (data.response?.trim()) {
         const assistant = data.response;
         await thread.send(assistant);

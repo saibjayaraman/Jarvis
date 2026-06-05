@@ -7,6 +7,7 @@ import "./discord.js";
 import { extractMemory } from "./memoryExtractor.js";
 import { writeMemory } from "./memoryWriter.js"
 import "./memoryIndexer.js";
+import "./memory/journalWorker.js";
 
 process.on("SIGINT", async () => {
     // silence everything during shutdown
@@ -78,10 +79,10 @@ async function streamChat(messages, onToken) {
     return assistant;
 }
 
-const MAX_TOOL_ROUNDS = 10;
+const MAX_TOOL_ROUNDS = process.env.MAX_TOOL_ROUNDS;
 
 async function chatWithTools(res, messages) {
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    for (let round = 0; (MAX_TOOL_ROUNDS === -1) ? true : (round < MAX_TOOL_ROUNDS); round++) {
         const response = await streamChat(messages, (token) => {
             sendEvent(res, { type: "token", content: token });
         });
@@ -100,6 +101,15 @@ async function chatWithTools(res, messages) {
                 console.time("tool:" + name)
                 const result = await runTool(name, call.function.arguments);
                 console.timeEnd("tool:" + name)
+
+                if (result?.sleep) {
+                    return {
+                        paused: true,
+                        seconds: result.seconds,
+                        message: result.message
+                    };
+                }
+
                 const content = typeof result === "string" ? result : JSON.stringify(result);
                 messages.push({ role: "tool", tool_name: name, content });
             } catch (err) {
