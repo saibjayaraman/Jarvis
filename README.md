@@ -130,16 +130,18 @@ QMD memory write-back (journaling / chat logs / people extraction)
 
 ## Setup
 
-### Cloning
+### Cloning (Run in terminal)
 
 ```bash
 git clone https://github.com/saibjayaraman/Jarvis.git
 cd ollama-chat
 npm install
 npx playwright install chromium
+ollama pull phi3.5:3.8b
+npm run add_collections
 ```
 
-### Environment variables (With reccomended values)
+### Environment variables (Copy to .env and fill other values)
 
 ```env
 # Current Brain
@@ -174,10 +176,7 @@ DISCORD_TOKEN=
 ENABLE_WEBUI=false
 MAX_TOOL_ROUNDS=-1
 ```
-
----
-
-## Brain providers
+### Brain providers
 
 
 | Provider      | Description           |
@@ -186,10 +185,7 @@ MAX_TOOL_ROUNDS=-1
 | ollama_remote | Remote Ollama server  |
 | claude        | Anthropic Claude API  |
 
-
----
-
-## Run
+### Run
 
 ```bash
 npm start
@@ -200,6 +196,8 @@ Open:
 ```
 http://localhost:3000
 ```
+
+It is also reccomended to write a bit about you, your background, preferences, and facts about yourself in memory/people/your_name.md
 
 ---
 

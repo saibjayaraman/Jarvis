@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "reindex": "node reindex.js"
+    "reindex": "node reindex.js",
+    "add_collections": "concurrently \"qmd collection add ./memory/journals --name journal\" \"qmd collection add ./memory/people --name people\" && \"qmd collection add ./memory/previous_chats\""
   },
   "keywords": [],
   "author": "",
@@ -18,6 +19,7 @@
     "@playwright/mcp": "^0.0.75",
     "@tobilu/qmd": "^2.5.3",
     "better-sqlite3": "^12.10.0",
+    "concurrently": "^10.0.3",
     "cors": "^2.8.6",
     "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
