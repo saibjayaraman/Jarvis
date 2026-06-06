@@ -295,3 +295,13 @@ client memory → QMD retrieval layer → model → QMD write-back
 - System remains stateless outside QMD
 - Tool outputs should remain minimal to avoid context bloat
 
+---
+
+# Goals / Future Features
+
+- Full sandbox for coding/command execution and app building
+- Tasks so Jarvis can schedule itself to wake up later
+- Email/SMS
+- API Framework (direct access via API to do tasks without full browser)
+- Python sandbox (execute code mid response)
+- Sub agents with specifc jobs
