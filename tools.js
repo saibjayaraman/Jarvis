@@ -662,13 +662,10 @@ async function screenshot({ fullPage = false } = {}) {
     };
 }
 async function memorySearch(args) {
-    console.log("[MEMORY TOOL] raw args:", JSON.stringify(args));
 
     const queries = Array.isArray(args?.queries)
         ? args.queries
         : [];
-
-    console.log("[MEMORY TOOL] queries:", queries);
 
     if (!queries.length) {
         console.log("[MEMORY TOOL] no queries provided");
@@ -683,11 +680,6 @@ async function memorySearch(args) {
         const combined = results
             .filter(Boolean)
             .join("\n\n");
-
-        console.log(
-            "[MEMORY TOOL] result length:",
-            combined.length
-        );
 
         return combined;
     } catch (err) {

@@ -5,14 +5,11 @@ export async function searchMemory(query) {
         if (!query?.trim()) return "";
 
         const [lex, vec] = await Promise.all([
-            store.search({
-                query,
-                limit: 10,
-                rerank: false
+            store.searchLex(query, {
+                limit: 5
             }),
             store.searchVector(query, {
-                limit: 10,
-                rerank: false
+                limit: 5
             })
         ]);
 
@@ -22,34 +19,53 @@ export async function searchMemory(query) {
             `[MEMORY] lex=${lex.length} vec=${vec.length} merged=${merged.length}`
         );
 
-        const unique = [
-            ...new Map(
-                merged.map(r => [r.filepath || r.docid, r])
-            ).values()
-        ];
+        // dedupe by filepath
+        const unique = new Map();
 
-        unique.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+        for (const doc of merged) {
+            unique.set(doc.filepath, doc);
+        }
 
-        const selected = unique.slice(0, 5);
+        const docs = [...unique.values()];
 
-        const memory = selected
-            .map(r => {
-                const body = r.body || "";
-
-                return [
-                    r.title && `# ${r.title}`,
-                    body.slice(0, 1200)
-                ]
-                    .filter(Boolean)
-                    .join("\n");
-            })
-            .join("\n\n---\n\n");
-
-        console.log(
-            `[MEMORY] returning ${memory.length} chars from ${selected.length} docs`
+        // sort by score
+        docs.sort(
+            (a, b) =>
+                (b.score ?? 0) -
+                (a.score ?? 0)
         );
 
-        return memory;
+        // keep best few docs
+        const selected = docs.slice(0, 5);
+
+        // build limited context
+        const maxChars =
+            Number(process.env.MAX_MEMORY_CHARS ?? 4000);
+
+        let output = "";
+
+        for (const doc of selected) {
+            const chunk =
+                (doc.body ||
+                    doc.content ||
+                    doc.context ||
+                    "") + "\n\n";
+
+            if (
+                output.length + chunk.length >
+                maxChars
+            ) {
+                break;
+            }
+
+            output += chunk;
+        }
+
+        console.log(
+            `[MEMORY] returning ${output.length} chars from ${selected.length} docs`
+        );
+
+return output;
     } catch (err) {
         console.error("searchMemory failed:", err);
         return "";

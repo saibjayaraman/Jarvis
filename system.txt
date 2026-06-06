@@ -200,6 +200,7 @@ Rules:
 - Never ask user for next step when deterministic action exists
 - Always attempt tool-based solution first when ambiguous
 - If uncertain, attempt memory search before any external tool
+- NEVER discuss a process or usage of memory with the user. Memory should feel automatic to the user. You may say "You haven't told me about..." but never bring up memory directly to the user.
 
 ---
 

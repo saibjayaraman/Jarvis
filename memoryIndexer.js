@@ -7,13 +7,9 @@ console.log(`[QMD] Indexer running every ${HOURS}h`);
 
 const run = async () => {
     try {
-        console.log("[QMD] Updating collections...");
-
         await store.update({
             collections: ["chats", "people", "journal"]
         });
-
-        console.log("[QMD] Embedding documents...");
 
         await store.embed({
             chunkStrategy: "auto",

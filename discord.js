@@ -19,13 +19,9 @@ client.once("clientReady", (c) => {
 
 client.on("messageCreate", async (message) => {
     if (message.author.bot) return;
-
-    // -------------------------
-    // NEW THREAD (MENTION)
-    // -------------------------
+    
     if (
-        message.channel.type === ChannelType.GuildText &&
-        message.mentions.has(client.user)
+        message.channel.type === ChannelType.GuildText
     ) {
         const prompt = message.content
             .replace(new RegExp(`<@!?${client.user.id}>`, "g"), "")
@@ -82,7 +78,7 @@ async function processThread(thread) {
             content: msg.content
         }));
 
-    const response = await fetch("http://localhost:3000/chat-json", {
+    const response = await fetch(`http://localhost:${process.env.PROCESS_PORT}/chat-discord`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -101,6 +97,16 @@ async function processThread(thread) {
     }
 
     const data = await response.json();
+
+    for (const event of data.events ?? []) {
+        if (event.type === "assistant") {
+            await thread.send(event.text);
+        }
+    
+        if (event.type === "tool") {
+            await thread.send(`🔧 ${event.name}`);
+        }
+    }
 
     if (data.paused) {
         await thread.send(data.message);

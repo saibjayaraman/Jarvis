@@ -81,21 +81,38 @@ async function streamChat(messages, onToken) {
 
 const MAX_TOOL_ROUNDS = Number(process.env.MAX_TOOL_ROUNDS);
 
-async function chatWithTools(res, messages) {
+async function chatWithTools(res, messages, { onAssistantText, onTool } = {}) {
     for (let round = 0; round < (MAX_TOOL_ROUNDS === -1 ? Infinity : MAX_TOOL_ROUNDS); round++) {
+        let pendingAssistantText = "";
+
         const response = await streamChat(messages, (token) => {
-            sendEvent(res, { type: "token", content: token });
+            pendingAssistantText += token;
+            sendEvent(res, {
+                type: "token",
+                content: token
+            });
         });
 
         messages.push(response);
 
         if (!response.tool_calls?.length) {
+            if (pendingAssistantText.trim()) {            
+                pendingAssistantText = "";
+            }
             return response;
         }
 
         for (const call of response.tool_calls) {
+
+            if (pendingAssistantText.trim()) {
+                await onAssistantText?.(pendingAssistantText);
+                pendingAssistantText = "";
+            }
+
             const name = call.function.name;
+
             sendEvent(res, { type: "tool", name });
+            await onTool?.(name);
 
             try {
                 console.time("tool:" + name)
@@ -154,7 +171,6 @@ app.post("/chat", async (req, res) => {
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders?.();
 
-    console.log("chat:", message?.slice(0, 80));
     sendEvent(res, { type: "status", content: "Thinking…" });
 
     try {
@@ -232,6 +248,85 @@ app.post("/chat-json", async (req, res) => {
     }
 });
 
-app.listen(3000, () => {
-    console.log("http://localhost:3000");
+app.post("/chat-discord", async (req, res) => {
+    try {
+        const { messages } = req.body;
+
+        const systemMessage = {
+            role: "system",
+            content:
+                system +
+                "\n\n" +
+                buildSystemContext("Discord")
+        };
+
+        const events = [];
+
+        const response = await chatWithTools(
+            null,
+            [
+                systemMessage,
+                ...messages
+            ],
+            {
+                onAssistantText(text) {
+                    events.push({
+                        type: "assistant",
+                        text
+                    });
+                },
+
+                onTool(name) {
+                    events.push({
+                        type: "tool",
+                        name
+                    });
+                }
+            }
+        );
+
+        if (response?.paused) {
+            return res.json({
+                paused: true,
+                seconds: response.seconds,
+                message: response.message,
+                events
+            });
+        }
+        
+        res.json({
+            response: response.content,
+            events
+        });
+
+        queueMicrotask(async () => {
+            try {
+                const memory = await extractMemory(
+                    brainChat,
+                    [...messages, response]
+                );
+
+                if (!memory) return;
+
+                await writeMemory(memory);
+
+            } catch (err) {
+                console.error(
+                    "Memory extraction failed:",
+                    err
+                );
+            }
+        });
+
+    } catch (err) {
+        console.error(err);
+
+        res.status(500).json({
+            error: err.message
+        });
+    }
+});
+
+app.listen(process.env.PROCESS_PORT, () => {
+    console.log(`http://localhost:${process.env.PROCESS_PORT}`);
 });

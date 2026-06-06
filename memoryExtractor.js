@@ -26,7 +26,6 @@ Only include durable information.
         process.env.QMD_SEARCH_MODEL,
         false
     );
-    console.log(response.content)
 
     try {
         return JSON.parse(response.content);
