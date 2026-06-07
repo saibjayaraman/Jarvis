@@ -16,4 +16,6 @@ COPY . .
 
 RUN npx playwright install --with-deps
 
+RUN npm run add_collections
+
 CMD ["npm", "start"]
