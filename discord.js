@@ -19,7 +19,7 @@ client.once("clientReady", (c) => {
 
 client.on("messageCreate", async (message) => {
     if (message.author.bot) return;
-    
+
     if (
         message.channel.type === ChannelType.GuildText
     ) {
@@ -61,6 +61,13 @@ client.on("messageCreate", async (message) => {
         await processThread(message.channel);
     }
 });
+
+function cleanAssistantText(text) {
+    return text
+        .replace(/\[.*?\]/g, "")          // optional tool noise
+        .replace(/assistant:/gi, "")
+        .trim();
+}
 
 async function processThread(thread) {
     await thread.sendTyping();
@@ -123,7 +130,7 @@ async function processThread(thread) {
     }
 
     if (data.response?.trim()) {
-        const assistant = data.response;
+        const assistant = cleanAssistantText(data.response);
         await thread.send(assistant);
     
         const userMessage = [...history]

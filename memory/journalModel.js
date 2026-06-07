@@ -1,4 +1,8 @@
-import ollama from "ollama";
+import { Ollama } from "ollama";
+
+const ollama = new Ollama({
+    host: process.env.OLLAMA_URL
+})
 
 const MODEL =
     process.env.JOURNAL_MODEL ??
@@ -71,6 +75,5 @@ ${chats}
                 }
             ]
         });
-
     return response.message.content.trim();
 }

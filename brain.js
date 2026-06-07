@@ -1,10 +1,18 @@
 import crypto from "crypto";
-import ollama from "ollama";
+import { Ollama } from "ollama";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY
 });
+
+const ollama_local = new Ollama({
+    host: process.env.OLLAMA_URL
+})
+
+const ollama_remote = new Ollama({
+    host: process.env.REMOTE_OLLAMA_URL
+})
 
 function parseToolInput(args) {
     if (args == null) return {};
@@ -184,26 +192,21 @@ async function claudeChat({ messages, tools, stream }, model = process.env.CLAUD
 export async function brainChat({ messages, tools, stream }, provider = process.env.BRAIN_PROVIDER, model = undefined, think = false) {
     switch (provider) {
         case "ollama_local":
-            return await ollama.chat({
+            return await ollama_local.chat({
                 model: model ? model : process.env.OLLAMA_MODEL,
                 messages,
                 tools,
                 stream,
                 think: think ? think : (process.env.OLLAMA_THINK === "false" ? false : "low")
             });
-
         case "ollama_remote":
-            return await fetch(`${process.env.REMOTE_OLLAMA_URL}/api/chat`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: model ? model : process.env.REMOTE_OLLAMA_MODEL,
-                    messages,
-                    tools,
-                    stream,
-                    think: process.env.REMOTE_OLLAMA_THINK === "false" ? false : "low"
-                })
-            }).then(r => r.json());
+            return await ollama_remote.chat({
+                model: model ? model : process.env.REMOTE_OLLAMA_MODEL,
+                messages,
+                tools,
+                stream,
+                think: think ? think : (process.env.REMOTE_OLLAMA_THINK === "false" ? false : "low")
+            });
 
         case "claude":
             return claudeChat({ messages, tools, stream }, model);

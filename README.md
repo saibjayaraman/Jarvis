@@ -7,20 +7,35 @@ Jarvis is designed as an execution-first system with tool-driven reasoning, brow
 
 ## Features
 
+## Features
+
 - Multi-client agent — Web UI + Discord bot using the same backend API
+- Docker-compatible deployment
 - Thread-based memory (Discord) — each thread reconstructed from full Discord history
-- Uses an advanced memory system (QMD) for persistant memory accross chats
+- Persistent long-term memory powered by QMD
+- Automatic journaling system that summarizes interactions into memory
+- User profile extraction and persistent preference storage
 - Swappable AI brain:
   - Ollama (local)
   - Ollama (remote)
-  - Anthropic Claude (streaming supported)
+  - Anthropic Claude
 - Tool-using agent loop:
-  - Executes structured tool calls
-  - Iterates until completion or tool limit reached
+  - Structured tool execution
+  - Iterative reasoning/action cycles
+  - Automatic recovery from tool failures
 - Browser automation (Playwright):
   - Navigate pages
-  - Inspect DOM state
+  - Inspect page state
   - Click / type / interact
+  - Multi-tab management
+- Memory retrieval tool:
+  - Multi-query semantic search
+  - Hybrid lexical + vector retrieval
+  - Cross-collection memory lookup
+- Background indexing:
+  - Automatic embedding generation
+  - Automatic re-indexing
+  - Collection synchronization
 - Web UI streaming (SSE)
 
 ---
@@ -111,34 +126,37 @@ QMD memory write-back (journaling / chat logs / people extraction)
 
 ## Core principles
 
-- Client owns conversational context
-- Backend is stateless
 - Memory is externalized into QMD collections
 - Tool execution is deterministic and loop-controlled
-- Memory retrieval happens before LLM reasoning step
 - No hardcoded “knowledge assumptions” inside model context
 
 ---
 
 ## Requirements
 
-- Node.js 18+
-- Playwright (Chromium)
+### Native
+
+- Node.js 22+
 - Ollama or Anthropic API key
+
+### Docker (Recommended)
+
+- Docker
+- Docker Compose
+
+Running inside Docker is recommended because it provides a consistent environment for Playwright, browser automation, and future sandboxed tooling.
 
 ---
 
 ## Setup
 
-### Cloning (Run in terminal)
+## Setup
+
+### Clone
 
 ```bash
 git clone https://github.com/saibjayaraman/Jarvis.git
-cd ollama-chat
-npm install
-npx playwright install chromium
-ollama pull phi3.5:3.8b
-npm run add_collections
+cd Jarvis
 ```
 
 ### Environment variables (Copy to .env and fill other values)
@@ -150,7 +168,7 @@ BRAIN_PROVIDER=claude
 # Brains
 ## ollama_local
 OLLAMA_MODEL=qwen3:8b
-OLLAMA_URL=http://localhost:11434
+OLLAMA_URL=http://host.docker.internal:11434
 OLLAMA_THINK=false
 
 ## ollama_remote
@@ -159,7 +177,7 @@ REMOTE_OLLAMA_MODEL=
 REMOTE_OLLAMA_THINK=false
 
 ## claude
-CLAUDE_API_KEY=
+CLAUDE_API_KEY=(insert claude API key to use claude)
 CLAUDE_MODEL=claude-haiku-4-5-20251001
 
 # QMD Search
@@ -172,9 +190,9 @@ JOURNAL_MODEL=phi3.5:3.8b
 MAX_MEMORY_CHARS=4000
 
 # Other
-USER_NAME=
-DISCORD_TOKEN=
-ENABLE_WEBUI=false
+USER_NAME=(insert your full name)
+DISCORD_TOKEN=(insert the token from your Discord bot)
+ENABLE_WEBUI=true
 MAX_TOOL_ROUNDS=-1
 PROCESS_PORT=3000
 ```
@@ -188,15 +206,13 @@ PROCESS_PORT=3000
 | claude        | Anthropic Claude API  |
 
 ### Run
-
+#### First Launch
 ```bash
-npm start
+docker compose up --build
 ```
-
-Open:
-
-```
-http://localhost:3000
+#### Subsequent Launches
+```bash
+docker compose up
 ```
 
 It is also reccomended to write a bit about you, your background, preferences, and facts about yourself in memory/people/your_name.md
