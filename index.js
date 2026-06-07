@@ -8,6 +8,7 @@ import { extractMemory } from "./memoryExtractor.js";
 import { writeMemory } from "./memoryWriter.js"
 import "./memoryIndexer.js";
 import "./memory/journalWorker.js";
+import "./ensureQMD.js";
 
 process.on("SIGINT", async () => {
     // silence everything during shutdown

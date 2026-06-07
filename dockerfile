@@ -14,8 +14,6 @@ RUN npm install
 
 COPY . .
 
-RUN npx playwright install --with-deps
-
-RUN npm run add_collections
+RUN npx playwright install chromium --with-deps
 
 CMD ["npm", "start"]
