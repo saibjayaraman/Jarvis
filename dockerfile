@@ -12,6 +12,8 @@ COPY package*.json ./
 
 RUN npm install
 
+RUN curl -LsSf https://aider.chat/install.sh | sh
+
 COPY . .
 
 RUN npx playwright install chromium --with-deps

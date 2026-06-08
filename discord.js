@@ -113,6 +113,12 @@ async function processThread(thread) {
         if (event.type === "tool") {
             await thread.send(`🔧 ${event.name}`);
         }
+
+        if (event.type === "image") {
+            await thread.send({
+                files: [event.path]
+            });
+        }
     }
 
     if (data.paused) {

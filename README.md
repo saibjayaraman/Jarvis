@@ -167,7 +167,7 @@ BRAIN_PROVIDER=claude
 
 # Brains
 ## ollama_local
-OLLAMA_MODEL=qwen3:8b
+OLLAMA_MODEL=gemma4:12b
 OLLAMA_URL=http://host.docker.internal:11434
 OLLAMA_THINK=false
 
@@ -177,7 +177,7 @@ REMOTE_OLLAMA_MODEL=
 REMOTE_OLLAMA_THINK=false
 
 ## claude
-CLAUDE_API_KEY=(insert claude API key to use claude)
+CLAUDE_API_KEY=
 CLAUDE_MODEL=claude-haiku-4-5-20251001
 
 # QMD Search
@@ -189,10 +189,14 @@ JOURNAL_INTERVAL=24
 JOURNAL_MODEL=phi3.5:3.8b
 MAX_MEMORY_CHARS=4000
 
+# Coder
+CODER_MODEL_PROVIDER=ollama_local
+CODER_MODEL=deepseek-coder-v2:lite
+
 # Other
-USER_NAME=(insert your full name)
-DISCORD_TOKEN=(insert the token from your Discord bot)
-ENABLE_WEBUI=true
+USER_NAME=Sai Jayaraman
+DISCORD_TOKEN=
+ENABLE_WEBUI=false
 MAX_TOOL_ROUNDS=-1
 PROCESS_PORT=3000
 ```

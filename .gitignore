@@ -1,7 +1,6 @@
 .env
 node_modules
 package-lock.json
-screenshots/*
-memory/*/*.md
-memory/*/*.json
+screenshots/*.*
+memory/*/*.*
 **/*.sqlite*

@@ -57,6 +57,8 @@ export async function runTool(name, args) {
             return await typist(parsed.id, parsed.text);
         case "screenshot":
             return await screenshot();
+        case "sendLatestScreenshot":
+            return await sendLatestScreenshot();
         case "search_memory":
             return await memorySearch(parsed);
         case "sleep":
@@ -288,6 +290,17 @@ export const tools = [
         }
     },
     {
+        type: "function",
+        function: {
+            name: "sendLatestScreenshot",
+            description: "Send the most recent screenshot taken by the browser agent to the user.",
+            parameters: {
+                type: "object",
+                properties: {}
+            }
+        }
+    },
+    {
         name: "search_memory",
         description: "Search long-term memory (previous chats, people, journal). Use multiple queries for better recall.",
         parameters: {
@@ -328,6 +341,7 @@ let currentElements = [];
 let pages = [];
 let currentPageIndex = 0;
 let clipboard = "";
+let latestScreenshot = null;
 
 export function getCurrentPage() {
     return pages[currentPageIndex];
@@ -650,15 +664,29 @@ export async function typist(id, text) {
 }
 async function screenshot({ fullPage = false } = {}) {
     const path = `./screenshots/${Date.now()}.png`;
+    const page = getCurrentPage()
 
     await page.screenshot({
         path,
         fullPage
     });
 
+    latestScreenshot = path;
+
+    return {
+        type: "Created screenshot"
+    };
+}
+async function sendLatestScreenshot() {
+    if (!latestScreenshot) {
+        return {
+            error: "No screenshot available"
+        };
+    }
+
     return {
         type: "image",
-        path
+        path: latestScreenshot
     };
 }
 async function memorySearch(args) {

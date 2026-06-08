@@ -10,22 +10,6 @@ import "./memoryIndexer.js";
 import "./memory/journalWorker.js";
 import "./ensureQMD.js";
 
-process.on("SIGINT", async () => {
-    // silence everything during shutdown
-    const noop = () => {};
-
-    console.log = noop;
-    console.warn = noop;
-    console.error = noop;
-
-    try {
-        await model?.dispose?.();
-        await store?.close?.();
-    } catch {}
-
-    process.exit(0);
-});
-
 function currentDate(date = new Date()) {
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -117,9 +101,20 @@ async function chatWithTools(res, messages, { onAssistantText, onTool } = {}) {
 
             try {
                 console.time("tool:" + name)
-                const result = await runTool(name, call.function.arguments);
-                console.timeEnd("tool:" + name)
+                let result;
+                try {
+                    result = await runTool(name, call.function.arguments);
+                } catch (err) {
+                    console.error(err)
+                } finally {
+                    console.timeEnd("tool:" + name)
+                }
 
+                console.log(result)
+
+                if (result?.type === "image") {
+                    await onTool?.(name, result)
+                }
                 if (result?.sleep) {
                     return {
                         paused: true,
@@ -277,11 +272,18 @@ app.post("/chat-discord", async (req, res) => {
                     });
                 },
 
-                onTool(name) {
-                    events.push({
-                        type: "tool",
-                        name
-                    });
+                onTool(name, result = undefined) {
+                    if (result) {
+                        events.push({
+                            type: "image",
+                            path: result.path
+                        });
+                    } else {
+                        events.push({
+                            type: "tool",
+                            name
+                        });
+                    }
                 }
             }
         );
