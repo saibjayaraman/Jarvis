@@ -4,3 +4,6 @@ package-lock.json
 screenshots/*.*
 memory/*/*.*
 **/*.sqlite*
+workspace/*
+!workspace/.gitkeep
+**/.DS_Store

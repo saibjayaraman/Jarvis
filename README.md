@@ -176,7 +176,17 @@ REMOTE_OLLAMA_THINK=false
 
 ## claude
 CLAUDE_API_KEY=
-CLAUDE_MODEL=claude-haiku-4-5-20251001
+CLAUDE_MODEL=claude-haiku-4-5
+
+## openai1
+OPENAI_URL=https://api.moonshot.ai/v1
+OPENAI_MODEL=kimi-k2.6
+OPENAI_API_KEY=
+
+## openai2
+OPENAI2_URL=
+OPENAI2_MODEL=
+OPENAI2_API_KEY=
 
 # QMD Search
 INDEXING_FREQUENCY=0.25
@@ -201,11 +211,14 @@ PROCESS_PORT=3000
 
 #### Providers
 
-| Provider      | Description           |
-| ------------- | --------------------- |
-| ollama_local  | Local Ollama instance |
-| ollama_remote | Remote Ollama server  |
-| claude        | Anthropic Claude API  |
+
+| Provider         | Description                                                         |
+| ---------------- | ------------------------------------------------------------------- |
+| ollama_local     | Local Ollama instance                                               |
+| ollama_remote    | Remote Ollama server                                                |
+| claude           | Anthropic Claude API                                                |
+| openai1/ openai2 | Any OpenAI compatible API (Two providers can be configured at once) |
+
 
 ### 3) Discord
 
@@ -223,11 +236,13 @@ PROCESS_PORT=3000
 Make sure Linux is bound to 0.0.0.0:11434, not 127.0.0.1:11434, as this will break access from within a Docker container:
 
 Run:
+
 ```bash
 systemctl edit ollama.service
 ```
 
 Paste:
+
 ```bash
 [Service]
 Environment="OLLAMA_HOST=0.0.0.0:11434"
@@ -347,3 +362,4 @@ client memory → QMD retrieval layer → model → QMD write-back
 - API Framework (direct access via API to do tasks without full browser)
 - Python sandbox (execute code mid response)
 - Sub agents with specifc jobs
+

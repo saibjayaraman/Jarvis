@@ -1,22 +1,51 @@
 import crypto from "crypto";
 import { Ollama } from "ollama";
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
-const anthropic = new Anthropic({
+const anthropic = process.env.CLAUDE_API_KEY ? new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY
-});
+}) : undefined;
 
-const ollama_local = new Ollama({
+const ollama_local = process.env.OLLAMA_URL? new Ollama({
     host: process.env.OLLAMA_URL
-})
+}) : undefined;
 
-const ollama_remote = new Ollama({
+const ollama_remote = process.env.REMOTE_OLLAMA_URL ? new Ollama({
     host: process.env.REMOTE_OLLAMA_URL
-})
+}) : undefined;
+
+const openai1 = process.env.OPENAI_URL ? new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_URL
+}) : undefined;
+
+const openai2 = process.env.OPENAI2_URL ? new OpenAI({
+    apiKey: process.env.OPENAI2_API_KEY,
+    baseURL: process.env.OPENAI2_URL
+}) : undefined;
 
 function parseToolInput(args) {
     if (args == null) return {};
     return typeof args === "string" ? JSON.parse(args) : args;
+}
+
+function toOpenAITools(tools = []) {
+    return tools
+        .filter(Boolean)
+        .map(t => t.function ?? t);
+}
+
+function toOpenAIToolCalls(toolCalls = []) {
+    return toolCalls.map(call => ({
+        function: {
+            name: call.function.name,
+            arguments:
+                typeof call.function.arguments === "string"
+                    ? JSON.parse(call.function.arguments)
+                    : call.function.arguments
+        }
+    }));
 }
 
 function toAnthropicTools(tools = []) {
@@ -33,7 +62,6 @@ function toAnthropicTools(tools = []) {
         });
 }
 
-/** Unwrap assistant rows where index.js stored the whole response in `content`. */
 function normalizeMessage(m) {
     if (m.role !== "assistant" || !m.content || typeof m.content !== "object" || Array.isArray(m.content)) {
         return m;
@@ -49,7 +77,59 @@ function normalizeMessage(m) {
     return m;
 }
 
-/** Map Ollama-style messages to Anthropic system + messages. */
+async function openAIChat(
+    client,
+    { messages, tools, stream },
+    model
+) {
+    const params = {
+        model,
+        messages,
+        tools: toOpenAITools(tools)
+    };
+
+    if (stream) {
+        const openaiStream = await client.chat.completions.create({
+            ...params,
+            stream: true
+        });
+
+        return (async function* () {
+            for await (const chunk of openaiStream) {
+                const delta = chunk.choices?.[0]?.delta;
+
+                if (delta?.content) {
+                    yield {
+                        message: {
+                            content: delta.content
+                        }
+                    };
+                }
+            }
+        })();
+    }
+
+    const response = await client.chat.completions.create(params);
+
+    console.log(response.usage.prompt_tokens_details.cached_tokens)
+
+    const message = response.choices[0].message;
+
+    return {
+        message: {
+            role: "assistant",
+            content: message.content ?? "",
+            ...(message.tool_calls?.length
+                ? {
+                    tool_calls: toOpenAIToolCalls(
+                        message.tool_calls
+                    )
+                }
+                : {})
+        }
+    };
+}
+
 function toAnthropicMessages(messages) {
     const systemParts = [];
     const anthropicMessages = [];
@@ -110,7 +190,6 @@ function toAnthropicMessages(messages) {
             if (blocks.length === 0) {
                 anthropicMessages.push({ role: "assistant", content: "" });
             } else if (hasToolUse) {
-                // Anthropic requires array content when tool_use blocks are present
                 anthropicMessages.push({ role: "assistant", content: blocks });
             } else if (blocks.length === 1 && blocks[0].type === "text") {
                 anthropicMessages.push({ role: "assistant", content: blocks[0].text });
@@ -139,7 +218,6 @@ function toOllamaToolCalls(contentBlocks) {
         }));
 }
 
-/** Yield Ollama-shaped stream chunks from an Anthropic MessageStream. */
 async function* claudeStreamToOllama(anthropicStream) {
     for await (const event of anthropicStream) {
         if (event.type !== "content_block_delta") continue;
@@ -199,6 +277,7 @@ export async function brainChat({ messages, tools, stream }, provider = process.
                 stream,
                 think: think ? think : (process.env.OLLAMA_THINK === "false" ? false : "low")
             });
+
         case "ollama_remote":
             return await ollama_remote.chat({
                 model: model ? model : process.env.REMOTE_OLLAMA_MODEL,
@@ -210,6 +289,20 @@ export async function brainChat({ messages, tools, stream }, provider = process.
 
         case "claude":
             return claudeChat({ messages, tools, stream }, model);
+
+        case "openai1":
+            return openAIChat(
+                openai1,
+                { messages, tools, stream },
+                model ?? process.env.OPENAI_MODEL
+            );
+        
+        case "openai2":
+            return openAIChat(
+                openai2,
+                { messages, tools, stream },
+                model ?? process.env.OPENAI2_MODEL
+            );
 
         default:
             throw new Error("Unknown brain provider");
