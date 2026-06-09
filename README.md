@@ -117,7 +117,7 @@ QMD memory write-back (journaling / chat logs / people extraction)
 
 ## Discord behavior
 
-- @mention creates a new thread
+- message creates a new thread
 - Each thread is a full conversation reconstructed from Discord history
 - First message is stored as thread root
 - No server-side chat memory (client is source of truth)
@@ -150,16 +150,14 @@ Running inside Docker is recommended because it provides a consistent environmen
 
 ## Setup
 
-## Setup
-
-### Clone
+### 1) Clone
 
 ```bash
 git clone https://github.com/saibjayaraman/Jarvis.git
 cd Jarvis
 ```
 
-### Environment variables (Copy to .env and fill other values)
+### 2) Environment variables (Copy to .env and fill missing values if needed)
 
 ```env
 # Current Brain
@@ -200,8 +198,8 @@ ENABLE_WEBUI=false
 MAX_TOOL_ROUNDS=-1
 PROCESS_PORT=3000
 ```
-### Brain providers
 
+#### Providers
 
 | Provider      | Description           |
 | ------------- | --------------------- |
@@ -209,12 +207,36 @@ PROCESS_PORT=3000
 | ollama_remote | Remote Ollama server  |
 | claude        | Anthropic Claude API  |
 
-### Run
-#### First Launch
+### 3) Discord
+
+- Go to the [Discord Developer Dashboard](https://discord.com/developers/applications)
+- Create a new app called Jarvis
+- Go to the bot tab, scroll down, andclick reset token
+- Copy the token and put it in .env in the DISCORD_TOKEN= section
+- Go to the installation tab, and make sure Install Link is set to Discord Provided Link
+- Copy the link, and paste it into your browser
+- Add the bot to your server of choice (preferably an empty/new
+ server)
+
+### 5) Ensuring Ollama Setup (Linux Only)
+
+Make sure Linux is bound to 0.0.0.0:11434, not 127.0.0.1:11434, as this will break access from within a Docker container:
+
+Run:
 ```bash
-docker compose up --build
+systemctl edit ollama.service
 ```
-#### Subsequent Launches
+
+Paste:
+```bash
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+```
+
+ctrl+w then Enter to save, ctrl+x to exit
+
+### 6) Run
+
 ```bash
 docker compose up
 ```
