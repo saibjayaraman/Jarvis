@@ -256,7 +256,7 @@ ctrl+w then Enter to save, ctrl+x to exit
 docker compose up
 ```
 
-It is also reccomended to write a bit about you, your background, preferences, and facts about yourself in memory/people/your_name.md
+It is also reccomended to write a bit about you, your background, preferences, and other facts about yourself in memory/people/your_name.md
 
 ---
 

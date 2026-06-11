@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { Ollama } from "ollama";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { inspect } from "util";
 
 const anthropic = process.env.CLAUDE_API_KEY ? new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY
@@ -33,19 +34,99 @@ function parseToolInput(args) {
 function toOpenAITools(tools = []) {
     return tools
         .filter(Boolean)
-        .map(t => t.function ?? t);
+        .map(t => {
+            const fn = t.function ?? t;
+
+            const parameters = fn.parameters ?? {
+                type: "object",
+                properties: {}
+            };
+
+            return {
+                type: "function",
+                function: {
+                    name: fn.name,
+                    description: fn.description ?? "",
+                    parameters: {
+                        ...parameters,
+                        type: "object",
+                        properties: parameters.properties ?? {},
+                        required: parameters.required ?? [],
+                        additionalProperties:
+                            parameters.additionalProperties ?? false
+                    },
+                    // DeepInfra / OpenAI compatible optional strict mode
+                    strict: fn.strict ?? false
+                }
+            };
+        });
 }
 
 function toOpenAIToolCalls(toolCalls = []) {
     return toolCalls.map(call => ({
+        id: call.id,
+        type: "function",
         function: {
             name: call.function.name,
             arguments:
                 typeof call.function.arguments === "string"
-                    ? JSON.parse(call.function.arguments)
-                    : call.function.arguments
+                    ? call.function.arguments
+                    : JSON.stringify(call.function.arguments ?? {})
         }
     }));
+}
+
+function toOpenAIMessages(messages) {
+    const out = [];
+    let toolCallIdsByName = {};
+    let toolCallQueue = [];
+
+    for (const m of messages) {
+        if (m.role === "assistant" && m.tool_calls?.length) {
+            const tool_calls = m.tool_calls.map(call => ({
+                id: call.id || `call_${crypto.randomUUID().replace(/-/g, "")}`,
+                type: "function",
+                function: {
+                    name: call.function.name,
+                    arguments:
+                        typeof call.function.arguments === "string"
+                            ? call.function.arguments
+                            : JSON.stringify(call.function.arguments ?? {})
+                }
+            }));
+            toolCallIdsByName = {};
+            toolCallQueue = [];
+            for (const tc of tool_calls) {
+                toolCallIdsByName[tc.function.name] = tc.id;
+                toolCallQueue.push(tc.id);
+            }
+            out.push({
+                role: "assistant",
+                content: m.content ?? "",
+                tool_calls
+            });
+            continue;
+        }
+
+        if (m.role === "tool") {
+            const id =
+                m.tool_call_id ??
+                toolCallIdsByName[m.tool_name] ??
+                toolCallQueue.shift();
+            out.push({
+                role: "tool",
+                tool_call_id: id,
+                content: typeof m.content === "string"
+                    ? m.content
+                    : JSON.stringify(m.content)
+            });
+            continue;
+        }
+
+        out.push(m);
+    }
+
+    return out;
 }
 
 function toAnthropicTools(tools = []) {
@@ -84,8 +165,9 @@ async function openAIChat(
 ) {
     const params = {
         model,
-        messages,
-        tools: toOpenAITools(tools)
+        messages: toOpenAIMessages(messages),
+        tools: toOpenAITools(tools),
+        tool_choice: "auto"
     };
 
     if (stream) {
@@ -95,6 +177,7 @@ async function openAIChat(
         });
 
         return (async function* () {
+            const accumulated = [];
             for await (const chunk of openaiStream) {
                 const delta = chunk.choices?.[0]?.delta;
 
@@ -105,13 +188,42 @@ async function openAIChat(
                         }
                     };
                 }
+
+                if (delta?.tool_calls) {
+                    for (const tc of delta.tool_calls) {
+                        const idx = tc.index ?? 0;
+                        if (!accumulated[idx]) {
+                            accumulated[idx] = {
+                                id: "",
+                                function: { name: "", arguments: "" }
+                            };
+                        }
+                        const slot = accumulated[idx];
+                        if (tc.id) slot.id = tc.id;
+                        if (tc.function?.name) slot.function.name += tc.function.name;
+                        if (tc.function?.arguments) slot.function.arguments += tc.function.arguments;
+                    }
+                }
+            }
+
+            if (accumulated.length) {
+                yield {
+                    message: {
+                        tool_calls: accumulated.filter(Boolean)
+                    }
+                };
             }
         })();
     }
+    console.log("===== OUTGOING MESSAGES =====");
+    console.dir(messages, { depth: null });
+    console.log("=============================");
+
+    console.log(
+        JSON.stringify(params.messages, null, 2)
+    );
 
     const response = await client.chat.completions.create(params);
-
-    console.log(response.usage.prompt_tokens_details.cached_tokens)
 
     const message = response.choices[0].message;
 
