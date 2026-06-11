@@ -161,11 +161,11 @@ cd Jarvis
 
 ```env
 # Current Brain
-BRAIN_PROVIDER=claude
+BRAIN_PROVIDER=openai1
 
 # Brains
 ## ollama_local
-OLLAMA_MODEL=gemma4:12b
+OLLAMA_MODEL=gemma4:12b-mlx
 OLLAMA_URL=http://host.docker.internal:11434
 OLLAMA_THINK=false
 
@@ -179,12 +179,11 @@ CLAUDE_API_KEY=
 CLAUDE_MODEL=claude-haiku-4-5
 
 ## openai1
-OPENAI_URL=https://api.moonshot.ai/v1
-OPENAI_MODEL=kimi-k2.6
+OPENAI_URL=https://api.deepinfra.com/v1/openai
+OPENAI_MODEL=moonshotai/Kimi-K2.5
 OPENAI_API_KEY=
 
 ## openai2
-OPENAI2_URL=
 OPENAI2_MODEL=
 OPENAI2_API_KEY=
 
