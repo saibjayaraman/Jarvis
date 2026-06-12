@@ -15,10 +15,6 @@ export async function searchMemory(query) {
 
         const merged = [...lex, ...vec];
 
-        console.log(
-            `[MEMORY] lex=${lex.length} vec=${vec.length} merged=${merged.length}`
-        );
-
         // dedupe by filepath
         const unique = new Map();
 

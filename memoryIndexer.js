@@ -15,8 +15,6 @@ const run = async () => {
             chunkStrategy: "auto",
             force: false
         });
-
-        console.log("[QMD] Indexing complete");
     } catch (err) {
         console.error("[QMD] Indexing failed:", err);
     }

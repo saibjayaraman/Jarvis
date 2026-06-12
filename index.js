@@ -128,9 +128,6 @@ async function chatWithTools(res, messages, { onAssistantText, onTool } = {}) {
                             ? result
                             : JSON.stringify(result);
 
-                console.log("TOOL RESULT:", result);
-                console.log("TOOL CONTENT:", content);
-
                 messages.push({ role: "tool", tool_name: name, content });
             } catch (err) {
                 console.error(`Tool ${name} failed:`, err);

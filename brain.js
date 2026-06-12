@@ -218,13 +218,6 @@ async function openAIChat(
             }
         })();
     }
-    console.log("===== OUTGOING MESSAGES =====");
-    console.dir(messages, { depth: null });
-    console.log("=============================");
-
-    console.log(
-        JSON.stringify(params.messages, null, 2)
-    );
 
     const response = await client.chat.completions.create(params);
 

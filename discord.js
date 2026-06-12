@@ -99,7 +99,7 @@ async function processThread(thread) {
     if (!response.ok) {
         const err = await response.text();
         console.error(err);
-        await thread.send("Backend error.");
+        await thread.send("Sir, I'm having trouble with the server.");
         return;
     }
 
