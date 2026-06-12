@@ -184,8 +184,12 @@ OPENAI_MODEL=moonshotai/Kimi-K2.5
 OPENAI_API_KEY=
 
 ## openai2
+OPENAI2_URL=
 OPENAI2_MODEL=
 OPENAI2_API_KEY=
+
+### Whether the OpenAI models are required to use tools: required or auto (none for no tools)
+OPENAI_TOOLS=required
 
 # QMD Search
 INDEXING_FREQUENCY=0.25

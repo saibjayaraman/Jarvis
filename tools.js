@@ -1,5 +1,10 @@
 import { chromium } from "playwright";
 import { searchMemory } from "./memory.js";
+import fs from "fs";
+import { exec } from "child_process";
+import util from "util"
+
+const execAsync = util.promisify(exec);
 
 function parseArgs(args) {
     return typeof args === "string" ? JSON.parse(args) : args;
@@ -66,6 +71,10 @@ export async function runTool(name, args) {
                 parsed.seconds,
                 parsed.message
             );
+        case "cmd":
+            return await cmd(parsed.command);
+        case "read_file":
+            return await readFile(parsed);
         default:
             return {
                 success: false,
@@ -316,7 +325,7 @@ export const tools = [
         }
     },
     {
-        name: "wait_for",
+        name: "sleep",
         description: "Pause the task until a future time or condition. Use for long running processes to send a status report to the user and then set a time to check back. Max 30 seconds",
         parameters: {
           type: "object",
@@ -330,7 +339,35 @@ export const tools = [
           },
           required: ["seconds", "message"]
         }
-      }
+    },
+    {
+        name: "cmd",
+        description: "Run a shell command in the workspace",
+        parameters: {
+          type: "object",
+          properties: {
+            command: { type: "string" }
+          },
+          required: ["command"]
+        }
+    },
+    {
+        name: "read_file",
+        description: "Read a file from workspace",
+        parameters: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+            lines: {
+              type: "object",
+              properties: {
+                start: { type: "number" },
+                end: { type: "number" }
+              }
+            }
+          }
+        }
+    }
 ];
 
 const browser = await chromium.launch({
@@ -725,5 +762,33 @@ export async function sleep(seconds, message) {
         sleep: true,
         safeSeconds,
         message
+    };
+}
+export async function cmd(command) {
+    const { stdout, stderr } = await execAsync(command, {
+        cwd: "/app/workspace"
+    });
+
+    return {
+        stdout,
+        stderr
+    };
+}
+export async function readFile({ path, lines = null }) {
+    const full = fs.readFileSync(path, "utf-8");
+
+    if (!lines) {
+        return {
+            path,
+            content: full.slice(0, 20000) // safety cap
+        };
+    }
+
+    const arr = full.split("\n");
+    const sliced = arr.slice(lines.start ?? 0, lines.end ?? (lines.start ?? 0) + 200);
+
+    return {
+        path,
+        content: sliced.join("\n")
     };
 }

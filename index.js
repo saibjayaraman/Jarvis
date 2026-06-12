@@ -110,8 +110,6 @@ async function chatWithTools(res, messages, { onAssistantText, onTool } = {}) {
                     console.timeEnd("tool:" + name)
                 }
 
-                console.log(result)
-
                 if (result?.type === "image") {
                     await onTool?.(name, result)
                 }
@@ -123,7 +121,16 @@ async function chatWithTools(res, messages, { onAssistantText, onTool } = {}) {
                     };
                 }
 
-                const content = typeof result === "string" ? result : JSON.stringify(result);
+                const content =
+                    result === undefined
+                        ? "Tool returned undefined"
+                        : typeof result === "string"
+                            ? result
+                            : JSON.stringify(result);
+
+                console.log("TOOL RESULT:", result);
+                console.log("TOOL CONTENT:", content);
+
                 messages.push({ role: "tool", tool_name: name, content });
             } catch (err) {
                 console.error(`Tool ${name} failed:`, err);

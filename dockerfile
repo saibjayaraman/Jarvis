@@ -10,17 +10,7 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     pipx \
     curl \
-    ripgrep && \
-    rm -rf /var/lib/apt/lists/*
-
-# Ensure pipx binaries are reachable
-ENV PATH="/root/.local/bin:$PATH"
-
-# Install Aider via pipx (isolated + stable)
-RUN pipx install aider-chat
-
-# Verify install (safe now that PATH is fixed)
-RUN aider --version
+    ripgrep
 
 # Node deps (cached layer)
 COPY package*.json ./

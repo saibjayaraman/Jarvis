@@ -2,7 +2,6 @@ import crypto from "crypto";
 import { Ollama } from "ollama";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { inspect } from "util";
 
 const anthropic = process.env.CLAUDE_API_KEY ? new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY
@@ -163,11 +162,15 @@ async function openAIChat(
     { messages, tools, stream },
     model
 ) {
+    if (!client) {
+        throw new Error("The OpenAI Client URL is not Specified, or Doesn't Exist")
+    }
+
     const params = {
         model,
         messages: toOpenAIMessages(messages),
         tools: toOpenAITools(tools),
-        tool_choice: "auto"
+        tool_choice: process.env.OPENAI_TOOLS
     };
 
     if (stream) {
